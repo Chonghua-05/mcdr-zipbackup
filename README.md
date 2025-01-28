@@ -55,20 +55,21 @@ pip install tqdm>=4.65.0
 
 ```json
 {
-    "turn_off_auto_save": true,
-    "ignore_session_lock": true,
-    "backup_path": "./perma_backup",
-    "server_path": "./server",
-    "world_names": ["world"],
-    "auto_backup_enabled": true,
-    "auto_backup_mode": "interval",
-    "auto_backup_interval": 3600,
-    "auto_backup_unit": "s",
-    "auto_backup_date_type": "daily",
-    "compression_level": "best",
-    "move_after_backup": false,
-    "move_to_path": "./backup_archive",
-    "delete_after_move": true,
+    "turn_off_auto_save": false, # 是否关闭自动保存
+    "ignore_session_lock": true, # 是否忽略session.lock
+    "backup_path": "./zip_backup", # 备份路径
+    "server_path": "./server", # 服务器路径
+    "world_names": ["world"], # 世界名称
+    "auto_backup_enabled": false, # 是否启用自动备份
+    "auto_backup_mode": "interval", # 自动备份模式
+    "auto_backup_interval": 3600, # 自动备份间隔
+    "auto_backup_unit": "s", # 自动备份单位
+    "auto_backup_date_type": "daily", # 自动备份日期类型
+    "compression_level": "best", # 压缩等级
+    "move_after_backup": false, # 是否备份后移动
+    "move_to_path": "./backup_archive", # 移动目标路径
+    "delete_after_move": false, # 是否移动后删除原文件
+    "check_auto_save_status": true # 是否监测自动保存状态
 }
 ```
 

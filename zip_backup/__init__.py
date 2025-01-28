@@ -24,7 +24,7 @@ class Configure(Serializable):
         'world'
     ]
     # 自动备份相关配置
-    auto_backup_enabled: bool = True  # 是否启用自动备份
+    auto_backup_enabled: bool = False  # 是否启用自动备份
     auto_backup_mode: str = 'interval'  # 备份模式: 'interval' 或 'date'
     # 间隔模式配置
     auto_backup_interval: int = 3600  # 自动备份时间间隔，默认 3600 秒（1 小时）
@@ -36,6 +36,8 @@ class Configure(Serializable):
     move_after_backup: bool = False  # 是否在备份后移动文件
     move_to_path: str = './backup_archive'  # 移动目标路径
     delete_after_move: bool = False  # 是否在移动后删除原文件
+    # 监测自动保存状态
+    check_auto_save_status: bool = True  # 是否监测自动保存状态
 
     minimum_permission_level: Dict[str, int] = {
         'make': 2,
@@ -75,7 +77,7 @@ HelpMessage = '''
 §b / /_  | | |_) |  | |_) | | (_| || (__ |   < | |_| | |_) |
 §b/____| |_| .__/   |____/   \__,_| \___||_|\_\ \__,_| .__/ 
 §b         |_|                                        |_|    §6by XRain666§r
-§e ---------------------- v1.0.29 ---------------------- §r
+§e ---------------------- v1.0.30 ---------------------- §r
 §7{0} make [<注释>]§r 创建一个备份
 §7{0} list§r 列出最近10个备份
 §7{0} listall§r 列出所有备份
@@ -92,6 +94,7 @@ HelpMessage = '''
 §a小草神什么的最可爱拉！(◕ᴗ◕✿)§r
 '''.strip().format(Prefix)
 game_saved = False
+checking_auto_save_status = False
 plugin_unloaded = False
 creating_backup = Lock()
 scheduler = None
@@ -133,43 +136,47 @@ def touch_backup_folder():
 
 def zip_world(server: ServerInterface, comment: Optional[str] = None):
     """压缩世界文件"""
-    # 获取总文件大小和数量
-    total_size = 0
-    file_count = 0
-    for world in config.world_names:
-        world_path = os.path.join(config.server_path, world)
-        if not os.path.exists(world_path):
-            continue
-        for root, _, files in os.walk(world_path):
-            for file in files:
-                # 跳过 session.lock 文件
-                if file == 'session.lock':
-                    continue
-                file_path = os.path.join(root, file)
-                if os.path.exists(file_path):
-                    try:
-                        total_size += os.path.getsize(file_path)
-                        file_count += 1
-                    except OSError:
+    # 启动自动保存监控
+    if config.check_auto_save_status:
+        global checking_auto_save_status
+        checking_auto_save_status = True
+    try:
+        # 获取总文件大小和数量
+        total_size = 0
+        file_count = 0
+        for world in config.world_names:
+            world_path = os.path.join(config.server_path, world)
+            if not os.path.exists(world_path):
+                continue
+            for root, _, files in os.walk(world_path):
+                for file in files:
+                    # 跳过 session.lock 文件
+                    if file == 'session.lock':
                         continue
+                    file_path = os.path.join(root, file)
+                    if os.path.exists(file_path):
+                        try:
+                            total_size += os.path.getsize(file_path)
+                            file_count += 1
+                        except OSError:
+                            continue
 
-    # 准备压缩
-    timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
-    zip_file = os.path.join(config.backup_path, f'backup_{timestamp}.zip')
-    
-    # 确保备份目录存在
-    try:
-        os.makedirs(config.backup_path, exist_ok=True)
-    except PermissionError as e:
-        server.logger.error(f"无法创建备份目录: {str(e)}")
-        raise
+        # 准备压缩
+        timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        zip_file = os.path.join(config.backup_path, f'backup_{timestamp}.zip')
+        
+        # 确保备份目录存在
+        try:
+            os.makedirs(config.backup_path, exist_ok=True)
+        except PermissionError as e:
+            server.logger.error(f"无法创建备份目录: {str(e)}")
+            raise
 
-    # 创建进度条
-    progress = tqdm(total=total_size, unit='B', unit_scale=True, 
-                   desc='压缩进度', ncols=100, 
-                   bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
+        # 创建进度条
+        progress = tqdm(total=total_size, unit='B', unit_scale=True, 
+                       desc='压缩进度', ncols=100, 
+                       bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
 
-    try:
         with zipfile.ZipFile(zip_file, 'w', config.get_compression_method()) as zf:
             # 添加注释
             if comment:
@@ -208,6 +215,8 @@ def zip_world(server: ServerInterface, comment: Optional[str] = None):
         raise
     finally:
         progress.close()
+        if config.check_auto_save_status:
+            checking_auto_save_status = False
 
 
 def move_backup_file(server: ServerInterface, backup_file: str):
@@ -431,6 +440,8 @@ def on_info(server, info):
         if info.content == 'Saved the game':
             global game_saved
             game_saved = True
+        elif info.content == "Automatic saving is now enabled" and checking_auto_save_status == True:
+            server.execute('save-off')
 
 
 def update_backup_interval():
