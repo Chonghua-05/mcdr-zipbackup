@@ -150,19 +150,32 @@ def should_exclude(target_path: str, server_path: str, exclude_patterns: List[st
         rel_to_server = norm_target
 
     for pattern in exclude_patterns:
-        norm_pat = pattern.replace('\\', '/').strip('/')
+        if not isinstance(pattern, str):
+            continue
+        # 归一化 pattern，去除多余的前导 ./ 和首尾斜杠
+        norm_pat = pattern.replace('\\', '/')
+        if norm_pat.startswith('./'):
+            norm_pat = norm_pat[2:]
+        norm_pat = norm_pat.strip('/')
         if not norm_pat:
             continue
-        # 1. 匹配基名 (如 'recordings', '*.tmp')
-        if fnmatch.fnmatch(name, norm_pat):
-            return True
-        # 2. 匹配相对路径或其前缀 (如 'server/recordings' 或 'recordings')
-        if fnmatch.fnmatch(rel_to_server, norm_pat) or fnmatch.fnmatch(rel_to_server, f"{norm_pat}/*"):
-            return True
-        # 3. 相对路径中的任一片段匹配该规则 (如排除 'recordings' 时命中 'recordings/a.mcpr')
-        rel_parts = rel_to_server.split('/')
-        if any(fnmatch.fnmatch(part, norm_pat) for part in rel_parts):
-            return True
+
+        # 1. 单纯文件名/通配符（不含路径分隔符），如 '*.tmp'、'recordings'
+        if '/' not in norm_pat:
+            if fnmatch.fnmatch(name, norm_pat):
+                return True
+            # 任一片段匹配（如排除 recordings 目录下的任意层级子文件）
+            if any(fnmatch.fnmatch(part, norm_pat) for part in rel_to_server.split('/')):
+                return True
+        else:
+            # 2. 包含路径分隔符的模式（如 'world/recordings' 或 'region/*.mca'）
+            # 完整相对路径匹配或作为目录前缀匹配
+            if fnmatch.fnmatch(rel_to_server, norm_pat) or fnmatch.fnmatch(rel_to_server, f"{norm_pat}/*"):
+                return True
+            # 支持省略顶层 world 名称的跨层级匹配（如以 '*/' 匹配任意父级目录）
+            if fnmatch.fnmatch(rel_to_server, f"*/{norm_pat}") or fnmatch.fnmatch(rel_to_server, f"*/{norm_pat}/*"):
+                return True
+
     return False
 
 
