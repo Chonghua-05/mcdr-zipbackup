@@ -60,6 +60,7 @@ pip install tqdm>=4.65.0
     "backup_path": "./zip_backup", # 备份路径
     "server_path": "./server", # 服务器路径
     "world_names": ["world"], # 世界名称
+    "exclude_paths": [], # 排除备份的文件或文件夹名称/路径模式（支持通配符，如 "recordings", "*.tmp"）
     "auto_backup_enabled": false, # 是否启用自动备份
     "auto_backup_mode": "interval", # 自动备份模式
     "auto_backup_interval": 3600, # 自动备份间隔
